@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import config from "../configs";
+import config from "../configs/index.js";
 
 const SECRET = config.fntSecret;
 
