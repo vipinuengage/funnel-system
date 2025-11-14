@@ -4,13 +4,14 @@ import config from "../configs/index.js";
 // Redis connection
 const redisUrl = `redis://${config.redis.redisHost}:${config.redis.redisPort}`;
 
-const redisClient = redis.createClient({
-    url: redisUrl,
-    family: 4, // Force IPv4
-});
+let redisClient;
 
 async function connectRedis() {
     try {
+        redisClient = redis.createClient({
+            url: redisUrl,
+            family: 4, // Force IPv4
+        });
         await redisClient.connect();
     } catch (error) {
         console.log("Error connecting redis:", error.message);
