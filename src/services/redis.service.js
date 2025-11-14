@@ -10,7 +10,11 @@ const redisClient = redis.createClient({
 });
 
 async function connectRedis() {
-    await redisClient.connect();
+    try {
+        await redisClient.connect();
+    } catch (error) {
+        console.log("Error connecting redis:", error.message);
+    }
 }
 
 async function disconnectRedis() {
