@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Funnel System POC - Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+
+        .funnel-step {
+            background: #e3f2fd;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #2196f3;
+        }
+
+        button {
+            background: #2196f3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #1976d2;
+        }
+
+        .status {
+            background: #f0f8ff;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+
+        .dashboard-link {
+            display: block;
+            text-align: center;
+            margin: 20px 0;
+            padding: 15px;
+            background: #4caf50;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+
+        .dashboard-link:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🚀 Funnel System POC Demo</h1>
+
+        <div class="status" id="status">
+            Tracker initialized. Visitor ID: <span id="visitorId"></span>
+        </div>
+
+        <div class="funnel-step">
+            <h3>1. Visit Event</h3>
+            <p>Track when users visit the page</p>
+            <button onclick="trackEvent('visit')">Track Visit</button>
+        </div>
+
+        <div class="funnel-step">
+            <h3>2. Login Event</h3>
+            <p>Track when users log in</p>
+            <button onclick="doLogin()">Track Login</button>
+        </div>
+
+        <div class="funnel-step">
+            <h3>3. Menu View Event</h3>
+            <p>Track when users view the menu</p>
+            <button onclick="trackEvent('menu', { metadata: { menuType: 'main' } })">
+                Track Menu View
+            </button>
+        </div>
+
+        <div class="funnel-step">
+            <h3>4. Checkout Event</h3>
+            <p>Track when users start checkout</p>
+            <button onclick="trackEvent('checkout', { metadata: { orderId: 'ORD_' + Date.now() } })">
+                Track Checkout
+            </button>
+        </div>
+
+        <div class="funnel-step">
+            <h3>5. Payment Event</h3>
+            <p>Track when users initiate payment</p>
+            <button onclick="trackEvent('payment', { metadata: { amount: 29.99, currency: 'USD' } })">
+                Track Payment
+            </button>
+        </div>
+
+        <div class="funnel-step">
+            <h3>6. Payment Success Event</h3>
+            <p>Track successful payments</p>
+            <button onclick="trackEvent('payment_done', { metadata: { transactionId: 'TXN_' + Date.now() } })">
+                Track Payment Success
+            </button>
+        </div>
+
+        <a href="/dashboard" class="dashboard-link">📊 View Real-time Dashboard</a>
+
+        <div style="
+          margin-top: 30px;
+          padding: 20px;
+          background: #f9f9f9;
+          border-radius: 5px;
+        ">
+            <h3>Event Queue Status</h3>
+            <p>
+                Events are batched and sent every 5 seconds or when 10 events are
+                queued.
+            </p>
+            <p>Check browser console for detailed logs.</p>
+        </div>
+    </div>
+
+    <script src="./tracker.js"></script>
+    <script>
+        // Initialize tracker
+        trackerInit({
+            apiUrl: "/api/events",
+            batchSize: 10,
+            flushInterval: 5000,
+            platform: "website",
+            tenantId: "10",
+            tenantToken: "FNT-10-1762776363756-5eb9c52e86e92a75",
+        });
+
+        // Display visitor ID
+        document.getElementById("visitorId").textContent = getVisitorId();
+
+        // Track initial visit
+        trackEvent("visit");
+
+        // Keep track of logged-in user
+        window.currentUserId = null;
+
+        // Wrap trackEvent to auto-attach user_id if logged in
+        const originalTrackEvent = window.trackEvent;
+        window.trackEvent = function (eventName, opts = {}) {
+            if (window.currentUserId) {
+                opts.user_id = window.currentUserId;
+            }
+            console.log("Tracking event:", eventName, opts);
+            return originalTrackEvent(eventName, opts);
+        };
+
+        // Login handler
+        function doLogin() {
+            const uid = "user_" + Math.random().toString(36).substring(2);
+            window.currentUserId = uid;
+            trackEvent("login", { user_id: uid });
+            document.getElementById(
+                "status"
+            ).innerHTML = `✅ Logged in as <b>${uid}</b> (Visitor ID: ${getVisitorId()})`;
+        }
+    </script>
+</body>
+
+</html>

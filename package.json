@@ -1,0 +1,29 @@
+{
+  "name": "funnel-system",
+  "version": "1.0.0",
+  "description": "This system provides an **end-to-end pipeline** for collecting, storing, and aggregating user interaction events from web or app clients into structured daily funnel analytics.",
+  "homepage": "https://github.com/vipinuengage/funnel-system#readme",
+  "bugs": {
+    "url": "https://github.com/vipinuengage/funnel-system/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vipinuengage/funnel-system.git"
+  },
+  "license": "ISC",
+  "author": "vipin.vishwakarma@uengage.in",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.927.0",
+    "dotenv": "^17.2.3",
+    "ejs": "^3.1.10",
+    "express": "^5.1.0",
+    "mongoose": "^8.19.3",
+    "node-cron": "^4.2.1",
+    "redis": "^5.9.0"
+  }
+}

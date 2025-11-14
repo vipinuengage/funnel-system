@@ -1,0 +1,81 @@
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: funnel_system_mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: funnel_analytics
+    volumes:
+      - funnel_system_mongodb_data:/data/db
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: "1g"
+        reservations:
+          cpus: "1.0"
+          memory: "512m"
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: funnel_system_redis
+    ports:
+      - "6379:6379"
+    environment:
+      - TZ=Asia/Kolkata
+    volumes:
+      - funnel_system_redis_data:/data
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: "512m"
+        reservations:
+          cpus: "0.5"
+          memory: "256m"
+
+  app:
+    build: .
+    container_name: funnel_system_app
+    ports:
+      - "3000:3000"
+    environment:
+      # LOCAL
+      - MONGODB_URI=
+      - REDIS_HOST=
+      - REDIS_PORT=
+      - REDIS_PASSWORD
+
+      # CLOUD
+      # - MONGODB_URI=
+      # - REDIS_HOST=
+      # - REDIS_PORT=
+      # - REDIS_PASSWORD=
+
+      # - AWS_REGION=
+      # - AWS_ACCESS_KEY_ID=
+      # - AWS_SECRET_ACCESS_KEY=
+      # - S3_BUCKET_NAME=
+    volumes:
+      - .:/app
+      - /app/node_modules
+    working_dir: /app
+    depends_on:
+      - redis
+      - mongodb
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: "512m"
+        reservations:
+          cpus: "1.0"
+          memory: "256m"
+
+volumes:
+  funnel_system_redis_data:
+  funnel_system_mongodb_data:
