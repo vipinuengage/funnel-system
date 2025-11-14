@@ -1,8 +1,6 @@
 // src/models/DailyFunnelStat.js
 import mongoose from "mongoose";
 
-import { getISTTimestamp } from "../utils/datetime.utils.js";
-
 const DailyFunnelSchema = new mongoose.Schema({
     tenant_id: { type: String, required: true },
     date: { type: Date, required: true },
@@ -41,8 +39,8 @@ const DailyFunnelSchema = new mongoose.Schema({
         ),
         default: {},
     },
-    created_at: { type: Date, default: () => getISTTimestamp() },
-    updated_at: { type: Date, default: () => getISTTimestamp() },
+    created_at: { type: Date, default: new Date() },
+    updated_at: { type: Date, default: new Date() },
 });
 
 DailyFunnelSchema.index({ tenant_id: 1, date: 1, funnel: 1 }, { unique: true });

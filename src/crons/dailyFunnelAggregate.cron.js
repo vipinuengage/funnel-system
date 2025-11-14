@@ -2,16 +2,8 @@
 import { schedule } from "node-cron";
 import { Event } from "../models/Event.model.js";
 import { DailyFunnelStat } from "../models/DailyFunnelStat.model.js";
-import { getISTDate, getISTTimestamp } from "../utils/datetime.utils.js";
+import { getISTDateStr, getISTDayRange } from "../utils/datetime.utils.js";
 
-/**
- * Build start/end Date objects for a single day (start inclusive, end exclusive)
- */
-const dayRangeFromDateString = (dateStr) => { return { start: new Date(`${dateStr} 00:00:00`), end: new Date(`${dateStr} 23:59:59`) } };
-
-/**
- * Ensure hourly array has 24 entries (0..23) in required format
- */
 function buildHourlyArray(hourMap = {}) {
     const arr = new Array(24).fill(0).map((_, h) => ({
         hour: h,
@@ -21,24 +13,23 @@ function buildHourlyArray(hourMap = {}) {
     return arr;
 }
 
-/**
- * Main aggregator for a date string (YYYY-MM-DD)
- * Aggregates per tenant_id + event + hour + platform + system
- *
- * Produces intermediate buckets that we fold into final per-tenant/per-event stats.
- */
 async function aggregateForDate(dateStr) {
-    const { start, end } = dayRangeFromDateString(dateStr);
+    const { startUTC: start, endUTC: end } = getISTDayRange(dateStr);
     console.info(`[funnel-agg] Starting aggregation for ${dateStr} (${start} -> ${end})`);
 
     // Aggregate grouped by tenant / event / hour / platform / system
     const pipeline = [
-        { $match: { captured_at: { $gte: start, $lte: end } } },
+        { $match: { captured_at: { $gte: start, $lt: end } } },
         {
             $project: {
                 tenant_id: 1,
                 event: 1,
-                hour: { $hour: "$captured_at" },
+                hour: {
+                    $hour: {
+                        date: "$captured_at",
+                        timezone: "Asia/Kolkata",
+                    },
+                },
                 visitor_id: 1,
                 platform: 1,
                 system: 1,
@@ -69,6 +60,7 @@ async function aggregateForDate(dateStr) {
             },
         },
     ];
+
 
     // ✅ Correct version:
     const cursor = Event.aggregate(pipeline)
@@ -160,7 +152,10 @@ async function aggregateForDate(dateStr) {
             // final hourly array filled 0..23
             const hourlyArray = buildHourlyArray(hourlyMapForDoc);
 
-            const filter = { tenant_id: tenantId, date: getISTTimestamp(dateStr), funnel: eventName };
+            // use midnight IST for that day as the key
+            const dateKey = new Date(`${dateStr}T00:00:00.000+05:30`);
+
+            const filter = { tenant_id: tenantId, date: dateKey, funnel: eventName };
             const update = {
                 $set: {
                     count: s.count,
@@ -168,9 +163,11 @@ async function aggregateForDate(dateStr) {
                     hourly: hourlyArray,
                     platforms: platformsDoc,
                     systems: systemsDoc,
-                    updated_at: getISTTimestamp(),
+                    updated_at: new Date()
                 },
-                $setOnInsert: { captured_at: getISTTimestamp() },
+                $setOnInsert: {
+                    created_at: new Date(),
+                },
             };
 
             await DailyFunnelStat.updateOne(filter, update, { upsert: true });
@@ -182,27 +179,23 @@ async function aggregateForDate(dateStr) {
     return { date: dateStr, count: upserted.length };
 }
 
-/**
- * Bootstrapped cron schedule:
- * - By default runs daily at 05:00 server time (change cron expression if you want a different time).
- * - The job aggregates for yesterday by default; override with AGG_DATE=YYYY-MM-DD for ad-hoc runs.
- *
- * NOTE: If you want to run for today's *current* partial day (like live updates), you can pass ? but
- * recommended pattern is: aggregate previous day to produce final daily stats.
- */
+
 export function startDailyFunnelAggregator({ cronExpr = "0 5 * * *", enabled = true } = {}) {
     if (!enabled) {
         console.info("[funnel-agg] Aggregator disabled by configuration.");
         return;
     }
 
-    let dateStr = getISTDate();
-
-    // aggregateForDate(dateStr);
+    const initialDateStr = getISTDateStr();
+    console.info(`[funnel-agg] Initial run for today IST: ${initialDateStr}`);
+    aggregateForDate(initialDateStr).catch(err => {
+        console.error("[funnel-agg] Initial run error:", err);
+    });
 
     schedule(cronExpr, async () => {
         try {
-            console.info(`[funnel-agg] Cron triggered. Aggregating for ${dateStr}.`);
+            const dateStr = getISTDateStr(1); // yesterday in IST at the time of cron
+            console.info(`[funnel-agg] Cron triggered. Aggregating for IST-yesterday: ${dateStr}.`);
             await aggregateForDate(dateStr);
         } catch (err) {
             console.error("[funnel-agg] Cron job error:", err);
@@ -211,3 +204,4 @@ export function startDailyFunnelAggregator({ cronExpr = "0 5 * * *", enabled = t
 
     console.info(`[funnel-agg] Scheduled daily aggregator with cron="${cronExpr}"`);
 }
+

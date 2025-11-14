@@ -1,6 +1,5 @@
 import { Event } from "../models/Event.model.js";
 import { redisClient } from "../services/redis.service.js";
-import { getISTDate, getISTTimestamp } from "../utils/datetime.utils.js";
 
 const eventsIngestController = async (req, res) => {
     try {
@@ -11,7 +10,7 @@ const eventsIngestController = async (req, res) => {
 
         if (!tenantToken || !events.length) return res.status(400).json({ error: "Missing tenant creds or events" });
 
-        const now = getISTTimestamp();
+        const now = new Date();
         // Normalize
         const processed = events.map((ev) => ({
             ...ev,
@@ -26,7 +25,7 @@ const eventsIngestController = async (req, res) => {
 
         // Decide whether we have Redis available
         const useRedis = !!redisClient && typeof redisClient.multi === "function";
-        const today = getISTDate();
+        const today = new Date();
 
         // If redis is available, create pipeline; otherwise skip redis writes.
         const pipeline = useRedis ? redisClient.multi() : null;

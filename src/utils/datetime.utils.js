@@ -1,4 +1,36 @@
-const getISTTimestamp = (dateTime = new Date()) => new Date(dateTime).toLocaleString('en-IN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Kolkata', hour12: false }).replace(/(\d+)\/(\d+)\/(\d+), (\d+):(\d+):(\d+)/, '$3-$2-$1 $4:$5:$6');
-const getISTDate = (date = new Date()) => new Date(date).toLocaleDateString('en-IN', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Asia/Kolkata' }).split('/').reverse().join('-');
+function getISTDayRange(dateStr) {
+    // dateStr = "2025-01-20"
+    const IST_OFFSET = 5.5 * 60; // in minutes
 
-export { getISTTimestamp, getISTDate }
+    // Parse IST midnight into a date object as if in UTC
+    const d = new Date(`${dateStr}T00:00:00.000Z`);
+
+    // Convert IST midnight → UTC (subtract 5:30)
+    const startUTC = new Date(d.getTime() - IST_OFFSET * 60 * 1000);
+
+    // End of day IST → +24h - 1 sec
+    const endUTC = new Date(startUTC.getTime() + 24 * 60 * 60 * 1000 - 1);
+
+    return { startUTC, endUTC };
+}
+
+// Get IST date string YYYY-MM-DD for N days ago
+function getISTDateStr(daysAgo = 0) {
+    const now = new Date();
+
+    // Shift to IST (UTC + 5:30)
+    const istMillis = now.getTime() + (5.5 * 60 * 60 * 1000);
+    const istDate = new Date(istMillis);
+
+    // Move back by daysAgo in IST context
+    istDate.setUTCDate(istDate.getUTCDate() - daysAgo);
+
+    const y = istDate.getUTCFullYear();
+    const m = String(istDate.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(istDate.getUTCDate()).padStart(2, "0");
+
+    return `${y}-${m}-${d}`;
+}
+
+
+export { getISTDayRange, getISTDateStr }

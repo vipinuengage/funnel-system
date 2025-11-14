@@ -3,17 +3,19 @@ import { Router } from "express";
 import { DailyFunnelStat } from "../models/DailyFunnelStat.model.js";
 import { Event } from "../models/Event.model.js";
 import { redisClient } from "../services/redis.service.js";
-import { getISTDate } from "../utils/datetime.utils.js";
 
 const router = Router();
 
 router.get("/api/dashboard/:tenantId", async (req, res) => {
     try {
         const tenantId = req.params.tenantId;
-        const dateQuery = req.query.date || getISTDate();
+        const dateQuery = new Date(req.query.date) || new Date();
 
-        const todayIST = getISTDate();
-        const isToday = dateQuery === todayIST;
+        // Check if the date is "today" in IST
+        const todayIST = new Date();
+
+        // Compare the yyyy-mm-dd parts only
+        const isToday = todayIST.toISOString().split("T")[0] === dateQuery.toISOString().split("T")[0];
 
         const toStartEnd = (yyyyMMdd) => {
             const date = new Date(yyyyMMdd + "T00:00:00+05:30"); // create as IST

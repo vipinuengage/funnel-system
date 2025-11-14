@@ -1,8 +1,6 @@
 // src/models/Event.js
 import mongoose from "mongoose";
 
-import { getISTTimestamp } from "../utils/datetime.utils.js";
-
 const EventSchema = new mongoose.Schema({
     tenant_id: { type: String, required: true },
     tenant_token: { type: String, required: true },
@@ -21,8 +19,8 @@ const EventSchema = new mongoose.Schema({
         required: true
     },
     metadata: { type: mongoose.Schema.Types.Mixed },
-    captured_at: { type: Date, default: () => getISTTimestamp() },
-    inserted_at: { type: Date, default: () => getISTTimestamp() },
+    captured_at: { type: Date, default: new Date() },
+    inserted_at: { type: Date, default: new Date() },
 });
 
 // Indexes
