@@ -28,7 +28,7 @@ async function connectRedis() {
 }
 
 async function disconnectRedis() {
-    if (redisClient.isOpen) await redisClient.quit();
+    if (redisClient?.isOpen) await redisClient.quit();
     console.log("Disconnected Redis");
 }
 
