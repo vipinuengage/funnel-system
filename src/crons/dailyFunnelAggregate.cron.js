@@ -197,8 +197,8 @@ export function startDailyFunnelAggregator({ cronExpr = "0 5 * * *", enabled = t
     }
 
     let dateStr = getISTDate();
-    console.log({ dateStr })
-    aggregateForDate(dateStr);
+
+    // aggregateForDate(dateStr);
 
     schedule(cronExpr, async () => {
         try {
