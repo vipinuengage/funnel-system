@@ -1,9 +1,10 @@
 // src/models/DailyFunnelStat.js
+import moment from "moment";
 import mongoose from "mongoose";
 
 const DailyFunnelSchema = new mongoose.Schema({
     tenant_id: { type: String, required: true },
-    date: { type: Date, required: true },
+    date: { type: String, required: true, default: moment().format("YYYY-MM-DD") },
     funnel: { type: String, required: true },
     count: { type: Number, default: 0 }, // total daily events
     unique_visitors: { type: Number, default: 0 }, // total daily unique visitors
@@ -39,8 +40,8 @@ const DailyFunnelSchema = new mongoose.Schema({
         ),
         default: {},
     },
-    created_at: { type: Date, default: new Date() },
-    updated_at: { type: Date, default: new Date() },
+    created_at: { type: "String", default: moment().format("YYYY-MM-DD HH:mm:ss"), index: true },
+    updated_at: { type: "String", default: moment().format("YYYY-MM-DD HH:mm:ss") },
 });
 
 DailyFunnelSchema.index({ tenant_id: 1, date: 1, funnel: 1 }, { unique: true });

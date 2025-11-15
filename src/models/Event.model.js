@@ -1,4 +1,5 @@
 // src/models/Event.js
+import moment from "moment";
 import mongoose from "mongoose";
 
 const EventSchema = new mongoose.Schema({
@@ -19,14 +20,13 @@ const EventSchema = new mongoose.Schema({
         required: true
     },
     metadata: { type: mongoose.Schema.Types.Mixed },
-    captured_at: { type: Date, default: new Date() },
-    inserted_at: { type: Date, default: new Date() },
+    captured_at: { type: String, default: moment().format("YYYY-MM-DD HH:mm:ss"), index: true },
+    inserted_at: { type: String, default: moment().format("YYYY-MM-DD HH:mm:ss") },
 });
 
 // Indexes
 EventSchema.index({ tenant_id: 1, captured_at: -1 });
 EventSchema.index({ tenant_id: 1, event: 1, captured_at: -1 });
-EventSchema.index({ tenant_id: 1, visitor_id: 1, user_id: 1 })
 
 
 const Event = mongoose.model("Event", EventSchema);

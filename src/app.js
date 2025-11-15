@@ -18,7 +18,10 @@ app.use(dashboardRouter);
 
 // 
 app.use(async (err, req, res, next) => {
-    if (err) return res.status(500).json({ error: `Internal Server Error: ${err?.message}` });
+    if (err) {
+        console.log({ err })
+        return res.status(500).json({ error: `Internal Server Error: ${err?.message}` });
+    }
     next();
 })
 

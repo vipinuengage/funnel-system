@@ -1,8 +1,7 @@
-// src/jobs/dailyFunnelAggregate.cron.js
+import moment from "moment";
 import { schedule } from "node-cron";
 import { Event } from "../models/Event.model.js";
 import { DailyFunnelStat } from "../models/DailyFunnelStat.model.js";
-import { getISTDateStr, getISTDayRange } from "../utils/datetime.utils.js";
 
 function buildHourlyArray(hourMap = {}) {
     const arr = new Array(24).fill(0).map((_, h) => ({
@@ -14,27 +13,60 @@ function buildHourlyArray(hourMap = {}) {
 }
 
 async function aggregateForDate(dateStr) {
-    const { startUTC: start, endUTC: end } = getISTDayRange(dateStr);
+    const start = `${dateStr} 00:00:00`;
+    const end = `${dateStr} 23:59:59`;
+
     console.info(`[funnel-agg] Starting aggregation for ${dateStr} (${start} -> ${end})`);
 
-    // Aggregate grouped by tenant / event / hour / platform / system
     const pipeline = [
-        { $match: { captured_at: { $gte: start, $lt: end } } },
+        {
+            $match: {
+                $expr: {
+                    $and: [
+                        {
+                            $gte: [
+                                { $dateFromString: { dateString: "$captured_at", timezone: "Asia/Kolkata" } },
+                                { $dateFromString: { dateString: start, timezone: "Asia/Kolkata" } }
+                            ]
+                        },
+                        {
+                            $lt: [
+                                { $dateFromString: { dateString: "$captured_at", timezone: "Asia/Kolkata" } },
+                                { $dateFromString: { dateString: end, timezone: "Asia/Kolkata" } }
+                            ]
+                        }
+                    ]
+                }
+            }
+        },
+
+        {
+            $addFields: {
+                captured_date: {
+                    $dateFromString: {
+                        dateString: "$captured_at",
+                        timezone: "Asia/Kolkata"
+                    }
+                }
+            }
+        },
+
         {
             $project: {
                 tenant_id: 1,
                 event: 1,
                 hour: {
                     $hour: {
-                        date: "$captured_at",
-                        timezone: "Asia/Kolkata",
-                    },
+                        date: "$captured_date",
+                        timezone: "Asia/Kolkata"
+                    }
                 },
                 visitor_id: 1,
                 platform: 1,
-                system: 1,
-            },
+                system: 1
+            }
         },
+
         {
             $group: {
                 _id: {
@@ -42,12 +74,13 @@ async function aggregateForDate(dateStr) {
                     event: "$event",
                     hour: "$hour",
                     platform: "$platform",
-                    system: "$system",
+                    system: "$system"
                 },
                 visitors: { $addToSet: "$visitor_id" },
-                count: { $sum: 1 },
-            },
+                count: { $sum: 1 }
+            }
         },
+
         {
             $project: {
                 tenant_id: "$_id.tenant_id",
@@ -56,31 +89,17 @@ async function aggregateForDate(dateStr) {
                 platform: "$_id.platform",
                 system: "$_id.system",
                 count: 1,
-                visitors: 1,
-            },
-        },
+                visitors: 1
+            }
+        }
     ];
 
 
-    // ✅ Correct version:
+
     const cursor = Event.aggregate(pipeline)
         .allowDiskUse(true)
         .cursor({ batchSize: 10000 });
 
-    /**
-     * Structure we will build:
-     * {
-     *   [tenantId]: {
-     *     [eventName]: {
-     *       count: number,
-     *       visitors: Set,
-     *       hourly: { [hour]: { count, visitors:Set } },
-     *       platforms: { [platform]: { count, visitors:Set } },
-     *       systems: { [system]: { count, visitors:Set } }
-     *     }
-     *   }
-     * }
-     */
     const totals = new Map();
 
     for await (const row of cursor) {
@@ -152,10 +171,7 @@ async function aggregateForDate(dateStr) {
             // final hourly array filled 0..23
             const hourlyArray = buildHourlyArray(hourlyMapForDoc);
 
-            // use midnight IST for that day as the key
-            const dateKey = new Date(`${dateStr}T00:00:00.000+05:30`);
-
-            const filter = { tenant_id: tenantId, date: dateKey, funnel: eventName };
+            const filter = { tenant_id: tenantId, date: dateStr, funnel: eventName };
             const update = {
                 $set: {
                     count: s.count,
@@ -163,10 +179,10 @@ async function aggregateForDate(dateStr) {
                     hourly: hourlyArray,
                     platforms: platformsDoc,
                     systems: systemsDoc,
-                    updated_at: new Date()
+                    updated_at: moment().format("YYYY-MM-DD")
                 },
                 $setOnInsert: {
-                    created_at: new Date(),
+                    created_at: moment().format("YYYY-MM-DD"),
                 },
             };
 
@@ -186,7 +202,7 @@ export function startDailyFunnelAggregator({ cronExpr = "0 5 * * *", enabled = t
         return;
     }
 
-    const initialDateStr = getISTDateStr();
+    const initialDateStr = moment().format("YYYY-MM-DD");
     console.info(`[funnel-agg] Initial run for today IST: ${initialDateStr}`);
     aggregateForDate(initialDateStr).catch(err => {
         console.error("[funnel-agg] Initial run error:", err);
@@ -194,7 +210,7 @@ export function startDailyFunnelAggregator({ cronExpr = "0 5 * * *", enabled = t
 
     schedule(cronExpr, async () => {
         try {
-            const dateStr = getISTDateStr(1); // yesterday in IST at the time of cron
+            const dateStr = moment().subtract(1, "days").format("YYYY-MM-DD");
             console.info(`[funnel-agg] Cron triggered. Aggregating for IST-yesterday: ${dateStr}.`);
             await aggregateForDate(dateStr);
         } catch (err) {

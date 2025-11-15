@@ -1,3 +1,4 @@
+import moment from "moment";
 import { Event } from "../models/Event.model.js";
 import { redisClient } from "../services/redis.service.js";
 
@@ -10,7 +11,7 @@ const eventsIngestController = async (req, res) => {
 
         if (!tenantToken || !events.length) return res.status(400).json({ error: "Missing tenant creds or events" });
 
-        const now = new Date();
+        const now = moment().format("YYYY-MM-DD HH:mm:ss");
         // Normalize
         const processed = events.map((ev) => ({
             ...ev,
@@ -25,7 +26,7 @@ const eventsIngestController = async (req, res) => {
 
         // Decide whether we have Redis available
         const useRedis = !!redisClient && typeof redisClient.multi === "function";
-        const today = new Date();
+        const today = moment().format("YYYY-MM-DD HH:mm:ss");
 
         // If redis is available, create pipeline; otherwise skip redis writes.
         const pipeline = useRedis ? redisClient.multi() : null;
@@ -73,7 +74,7 @@ const eventsIngestController = async (req, res) => {
                 }
 
                 // hourly count
-                const hour = new Date(ev.captured_at).getHours();
+                const hour = moment(dateString, "YYYY-MM-DD HH:mm:ss").format("HH");
                 pipeline.incr(`${baseKey}:hour:${hour}:count`);
 
                 if (ev.visitor_id) {
