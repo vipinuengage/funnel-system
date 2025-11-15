@@ -8,6 +8,7 @@
         tenantToken: null,
     };
 
+
     let eventQueue = [];
     let visitorId = null;
 
@@ -41,9 +42,9 @@
 
         if (navigator.sendBeacon) {
             // sendBeacon doesn't allow custom headers -> include apiKey in payload or use cookie.
-            navigator.sendBeacon(config.apiUrl, blob);
+            navigator.sendBeacon(`https://uengage-funnel-event.uengage.in${config.apiUrl}`, blob);
         } else {
-            fetch(config.apiUrl, {
+            fetch(`https://uengage-funnel-event.uengage.in${config.apiUrl}`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

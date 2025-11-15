@@ -8,7 +8,7 @@ export const options = {
             executor: "constant-arrival-rate",
             rate: 300,              // requests per timeUnit (see explanation below)
             timeUnit: "1s",          // 300 requests per second
-            duration: "5m",          // 300s => 300s * 300 = 90000 total requests
+            duration: "5m",          // 300s => 300s * 300 = 27000 total requests
             preAllocatedVUs: 1000,   // reserve these VUs up-front (concurrency cap)
             maxVUs: 2000,            // absolute upper limit of VUs
             exec: "sendBatch",
@@ -22,8 +22,8 @@ export const options = {
 };
 
 // Config (overrides via env)
-const TARGET = __ENV.TARGET || "http://localhost:3000/api/events";
-const TENANT_TOKEN = __ENV.TENANT_TOKEN || "FNT-10-1762776363756-5eb9c52e86e92a75";
+const TARGET = __ENV.TARGET || "https://uengage-funnel-event.uengage.in/api/events";
+const TENANT_TOKEN = __ENV.TENANT_TOKEN || "FNT-10-1763107584638-9da8ba4c082465f0";
 const TENANT_ID = __ENV.TENANT_ID || "10";
 
 // Utility to generate a pseudo-random visitor id
