@@ -13,6 +13,7 @@ const app = express();
 // app.use(cors());
 app.use(express.json());
 app.use(express.static("public"));
+app.use("/public/tracker.js", express.static("public/tracker.js"));
 
 app.get("/docs/readme", (req, res) => {
     const filePath = path.join(process.cwd(), "docs", "readme.md");
