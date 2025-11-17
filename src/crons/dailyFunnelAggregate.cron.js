@@ -1,3 +1,11 @@
+
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 import moment from "moment";
 import { schedule } from "node-cron";
 import { Event } from "../models/Event.model.js";
@@ -12,6 +20,74 @@ function buildHourlyArray(hourMap = {}) {
     return arr;
 }
 
+function buildDateExpr(dateStr) {
+    const start = `${dateStr} 00:00:00`;
+    const end = `${dateStr} 23:59:59`;
+
+    return {
+        $and: [
+            {
+                $gte: [
+                    { $dateFromString: { dateString: "$captured_at", timezone: "Asia/Kolkata" } },
+                    { $dateFromString: { dateString: start, timezone: "Asia/Kolkata" } }
+                ]
+            },
+            {
+                $lt: [
+                    { $dateFromString: { dateString: "$captured_at", timezone: "Asia/Kolkata" } },
+                    { $dateFromString: { dateString: end, timezone: "Asia/Kolkata" } }
+                ]
+            }
+        ]
+    };
+}
+
+
+async function archiveAndDeleteEventsForDate(dateStr) {
+    console.info(`[funnel-agg] Archiving & deleting events for ${dateStr}...`);
+
+    const archiveDir = path.join(__dirname, "..", "archives", "events");
+    fs.mkdirSync(archiveDir, { recursive: true });
+
+    const filePath = path.join(archiveDir, `events-${dateStr}.njson`); // as you asked: .njson
+    const writeStream = fs.createWriteStream(filePath, { flags: "w" });
+
+    const filter = { $expr: buildDateExpr(dateStr) };
+
+    const cursor = Event.find(filter).cursor();
+
+    let written = 0;
+    try {
+        for await (const doc of cursor) {
+            const plain = doc.toObject ? doc.toObject() : doc;
+            writeStream.write(JSON.stringify(plain) + "\n");
+            written++;
+        }
+
+        // Finish writing
+        await new Promise((resolve, reject) => {
+            writeStream.on("finish", resolve);
+            writeStream.on("error", reject);
+            writeStream.end();
+        });
+
+        // Now delete
+        const { deletedCount } = await Event.deleteMany(filter);
+
+        console.info(
+            `[funnel-agg] Archived ${written} events to ${filePath} and deleted ${deletedCount} events from DB for ${dateStr}.`
+        );
+
+        return { filePath, archived: written, deleted: deletedCount };
+    } catch (err) {
+        console.error("[funnel-agg] Error while archiving/deleting:", err);
+        // Make sure stream is closed on error
+        writeStream.destroy();
+        throw err;
+    }
+}
+
+
 async function aggregateForDate(dateStr) {
     const start = `${dateStr} 00:00:00`;
     const end = `${dateStr} 23:59:59`;
@@ -21,22 +97,7 @@ async function aggregateForDate(dateStr) {
     const pipeline = [
         {
             $match: {
-                $expr: {
-                    $and: [
-                        {
-                            $gte: [
-                                { $dateFromString: { dateString: "$captured_at", timezone: "Asia/Kolkata" } },
-                                { $dateFromString: { dateString: start, timezone: "Asia/Kolkata" } }
-                            ]
-                        },
-                        {
-                            $lt: [
-                                { $dateFromString: { dateString: "$captured_at", timezone: "Asia/Kolkata" } },
-                                { $dateFromString: { dateString: end, timezone: "Asia/Kolkata" } }
-                            ]
-                        }
-                    ]
-                }
+                $expr: buildDateExpr(dateStr)
             }
         },
 
@@ -191,8 +252,16 @@ async function aggregateForDate(dateStr) {
         }
     }
 
-    console.info(`[funnel-agg] Completed aggregation for ${dateStr}. Upserted ${upserted.length} documents.`);
-    return { date: dateStr, count: upserted.length };
+    // 🔽 NEW: archive then delete
+    const archiveInfo = await archiveAndDeleteEventsForDate(dateStr);
+
+    return {
+        date: dateStr,
+        upserted: upserted.length,
+        archived: archiveInfo.archived,
+        deleted: archiveInfo.deleted,
+        filePath: archiveInfo.filePath,
+    };
 }
 
 
