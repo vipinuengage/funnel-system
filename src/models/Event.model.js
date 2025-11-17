@@ -8,7 +8,7 @@ const EventSchema = new mongoose.Schema({
     visitor_id: { type: String, required: true },
     user_id: { type: String },
     event: { type: String, required: true },
-    url: { type: String, required: true },
+    url: { type: String },
     platform: {
         type: String,
         enum: ["website", "application"],
