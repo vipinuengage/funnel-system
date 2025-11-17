@@ -49,7 +49,7 @@ async function archiveAndDeleteEventsForDate(dateStr) {
     const archiveDir = path.join(__dirname, "..", "archives", "events");
     fs.mkdirSync(archiveDir, { recursive: true });
 
-    const filePath = path.join(archiveDir, `events-${dateStr}.njson`); // as you asked: .njson
+    const filePath = path.join(archiveDir, `events-${dateStr}-${Date.now()}.njson`); // as you asked: .njson
     const writeStream = fs.createWriteStream(filePath, { flags: "w" });
 
     const filter = { $expr: buildDateExpr(dateStr) };
@@ -271,11 +271,11 @@ export function startDailyFunnelAggregator({ cronExpr = "0 5 * * *", enabled = t
         return;
     }
 
-    const initialDateStr = moment().format("YYYY-MM-DD");
-    console.info(`[funnel-agg] Initial run for today IST: ${initialDateStr}`);
-    aggregateForDate(initialDateStr).catch(err => {
-        console.error("[funnel-agg] Initial run error:", err);
-    });
+    // const initialDateStr = moment().format("YYYY-MM-DD");
+    // console.info(`[funnel-agg] Initial run for today IST: ${initialDateStr}`);
+    // aggregateForDate(initialDateStr).catch(err => {
+    //     console.error("[funnel-agg] Initial run error:", err);
+    // });
 
     schedule(cronExpr, async () => {
         try {
