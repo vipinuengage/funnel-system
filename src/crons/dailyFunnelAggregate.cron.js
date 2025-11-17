@@ -240,10 +240,10 @@ async function aggregateForDate(dateStr) {
                     hourly: hourlyArray,
                     platforms: platformsDoc,
                     systems: systemsDoc,
-                    updated_at: moment().format("YYYY-MM-DD")
+                    updated_at: moment().format("YYYY-MM-DD HH:mm:ss")
                 },
                 $setOnInsert: {
-                    created_at: moment().format("YYYY-MM-DD"),
+                    created_at: moment().format("YYYY-MM-DD HH:mm:ss"),
                 },
             };
 
