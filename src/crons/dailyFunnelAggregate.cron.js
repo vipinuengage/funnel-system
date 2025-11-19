@@ -33,7 +33,7 @@ function buildDateExpr(dateStr) {
                 ]
             },
             {
-                $lt: [
+                $lte: [
                     { $dateFromString: { dateString: "$captured_at", timezone: "Asia/Kolkata" } },
                     { $dateFromString: { dateString: end, timezone: "Asia/Kolkata" } }
                 ]

@@ -6,6 +6,4 @@ const router = Router();
 
 router.get("/api/dashboard/:tenantId", dashboardController);
 
-
-
 export { router as dashboardRouter };

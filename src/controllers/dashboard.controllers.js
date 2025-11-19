@@ -259,7 +259,7 @@ const dashboardController = async (req, res) => {
                                 ]
                             },
                             {
-                                $lt: [
+                                $lte: [
                                     { $dateFromString: { dateString: "$captured_at", timezone: "Asia/Kolkata" } },
                                     { $dateFromString: { dateString: end, timezone: "Asia/Kolkata" } }
                                 ]
