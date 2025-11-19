@@ -1,11 +1,19 @@
 import moment from "moment";
-import { DailyFunnelStat } from "../models/DailyFunnelStat.model.js";
+
 import { Event } from "../models/Event.model.js";
+import { FunnelToken } from "../models/FunnelToken.model.js";
+import { DailyFunnelStat } from "../models/DailyFunnelStat.model.js";
 import { redisClient } from "../services/redis.service.js";
 
 const dashboardController = async (req, res) => {
     try {
         const tenantId = req.params.tenantId;
+
+        if (!tenantId) return res.status(400).json({ error: "Tenant ID is required!" });
+
+        let isTenantExists = await FunnelToken.findOne({ tenant_id: tenantId });
+        if (!isTenantExists) return res.status(400).json({ error: "Invalid tenantId" });
+
         const dateQuery = moment(req.query.date).format("YYYY-MM-DD") || moment().format("YYYY-MM-DD");
 
         // Check if the date is "today" in IST
