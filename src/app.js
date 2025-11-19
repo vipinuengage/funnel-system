@@ -8,10 +8,12 @@ import { eventRouter } from "./routes/events.routes.js";
 import { funnelTokenRouter } from "./routes/tokens.routes.js";
 import { dashboardRouter } from "./routes/dashboard.routes.js";
 
+import config from "./configs/index.js";
+
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors(config.corsOptions));
 app.use(express.json());
 app.use(express.static("public"));
 app.use("/public/tracker.js", express.static("public/tracker.js"));
