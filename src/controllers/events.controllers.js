@@ -1,4 +1,5 @@
 import moment from "moment";
+import momentTZ from "moment-timezone";
 import { Event } from "../models/Event.model.js";
 import { redisClient } from "../services/redis.service.js";
 
@@ -12,12 +13,16 @@ const eventsIngestController = async (req, res) => {
         if (!tenantToken || !events.length) return res.status(400).json({ error: "Missing tenant creds or events" });
 
         const now = moment().format("YYYY-MM-DD HH:mm:ss");
+
+        const capturedAtIST = moment(captured_at).tz('Asia/Kolkata'); // parse ISO, shift to IST
+        const capturedAtStr = capturedAtIST.format('YYYY-MM-DD HH:mm:ss'); // safe for Mongo
+
         // Normalize
         const processed = events.map((ev) => ({
             ...ev,
             tenant_id: tenantId,
             tenant_token: tenantToken,
-            captured_at: ev.captured_at || now,
+            captured_at: momentTZ(ev.captured_at).tz("Asia/Kolkata").format('YYYY-MM-DD HH:mm:ss') || now,
             inserted_at: now,
         }));
 

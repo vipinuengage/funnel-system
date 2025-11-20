@@ -63,7 +63,8 @@
             visitor_id: getVisitorId(),
             user_id: opts.user_id || null,
             url: window.location.pathname,
-            captured_at: new Date().toLocaleString('en-IN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Kolkata', hour12: false }).replace(/(\d+)\/(\d+)\/(\d+), (\d+):(\d+):(\d+)/, '$3-$2-$1 $4:$5:$6'),
+            // captured_at: new Date().toLocaleString('en-IN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Kolkata', hour12: false }).replace(/(\d+)\/(\d+)\/(\d+), (\d+):(\d+):(\d+)/, '$3-$2-$1 $4:$5:$6'),
+            captured_at: new Date().toISOString(),
             platform: config.platform,
             system: sysInfo.system,
             metadata: opts.metadata || {}
