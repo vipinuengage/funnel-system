@@ -14,9 +14,6 @@ const eventsIngestController = async (req, res) => {
 
         const now = moment().format("YYYY-MM-DD HH:mm:ss");
 
-        const capturedAtIST = moment(captured_at).tz('Asia/Kolkata'); // parse ISO, shift to IST
-        const capturedAtStr = capturedAtIST.format('YYYY-MM-DD HH:mm:ss'); // safe for Mongo
-
         // Normalize
         const processed = events.map((ev) => ({
             ...ev,
