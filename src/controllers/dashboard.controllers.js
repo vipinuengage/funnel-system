@@ -331,8 +331,6 @@ const dashboardController = async (req, res) => {
             }
         ];
 
-        console.log("pipeline:", pipeline);
-
         const agg = await Event.aggregate(pipeline).allowDiskUse(true).exec();
 
         const dailyTotals = {};
