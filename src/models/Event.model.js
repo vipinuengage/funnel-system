@@ -7,7 +7,11 @@ const EventSchema = new mongoose.Schema({
     tenant_token: { type: String, required: true },
     visitor_id: { type: String, required: true },
     user_id: { type: String },
-    event: { type: String, required: true },
+    event: {
+        type: String,
+        enum: ["visit", "send_otp", "login_success", "location_selected", "location_popup", "product_viewed", "add_to_cart", "remove_from_cart", "add_payment_info", "conversion"],
+        required: true
+    },
     url: { type: String },
     platform: {
         type: String,
