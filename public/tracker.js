@@ -80,7 +80,6 @@
 
     function trackerInit(options = {}) {
         config = { ...config, ...options };
-        console.log({ config })
         if (!config.tenantToken) console.warn("trackerInit: tenantToken missing");
         startFlushTimer();
         global.trackEvent = trackEvent;
