@@ -15,13 +15,16 @@ const eventsIngestController = async (req, res) => {
         const now = moment().format("YYYY-MM-DD HH:mm:ss");
 
         // Normalize
-        const processed = events.map((ev) => ({
-            ...ev,
-            tenant_id: tenantId,
-            tenant_token: tenantToken,
-            captured_at: momentTZ(ev.captured_at).tz("Asia/Kolkata").format('YYYY-MM-DD HH:mm:ss') || now,
-            inserted_at: now,
-        }));
+        const processed = events.map((ev) => {
+            let captured_at = momentTZ((ev?.captured_at || "").trim()).tz("Asia/Kolkata").format('YYYY-MM-DD HH:mm:ss');
+            return {
+                ...ev,
+                tenant_id: tenantId,
+                tenant_token: tenantToken,
+                captured_at: (!captured_at || captured_at === "Invalid date") ? now : captured_at,
+                inserted_at: now,
+            }
+        });
 
         // 1) Persist raw events to Mongo once (bulk)
         await Event.insertMany(processed);
