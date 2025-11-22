@@ -9,7 +9,7 @@ const EventSchema = new mongoose.Schema({
     user_id: { type: String },
     event: {
         type: String,
-        enum: ["visit", "send_otp", "login_success", "location_selected", "location_popup", "address_selected", "product_viewed", "add_to_cart", "couponApplied", "begin_checkout", "remove_from_cart", "add_payment_info", "conversion"],
+        enum: ["visit", "send_otp", "login_success", "location_selected", "location_popup", "address_selected", "slot_select", "product_viewed", "add_to_cart", "couponApplied", "begin_checkout", "remove_from_cart", "add_payment_info", "conversion"],
         required: true
     },
     url: { type: String },
