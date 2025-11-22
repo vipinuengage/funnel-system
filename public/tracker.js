@@ -23,8 +23,15 @@
     }
 
     function getUserId() {
-        return localStorage.getItem("user_id");
+        const userdata = localStorage.getItem("userdata");
+        if (!userdata) return null;
+        try {
+            return JSON.parse(userdata)?.mobile ?? null;
+        } catch (e) {
+            return null;
+        }
     }
+
 
     function getSystemInfo() {
         const ua = navigator.userAgent;
