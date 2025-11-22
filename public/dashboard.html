@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Funnel 360 Dashboard (in-development) </title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --bg-soft: #111827;
+      --card-bg: #020617;
+      --border-subtle: #1f2937;
+      --text-main: #e5e7eb;
+      --text-muted: #9ca3af;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.12);
+      --danger: #f97373;
+      --success: #4ade80;
+      --warning: #facc15;
+      --radius-lg: 16px;
+      --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.8);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #1e293b 0, #020617 55%);
+      color: var(--text-main);
+      min-height: 100vh;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+    }
+
+    .page-wrapper { max-width: 1280px; margin: 0 auto; padding: 18px 12px 28px; }
+
+    header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap:wrap;}
+
+    .brand { display: flex; align-items: center; gap: 10px; min-width: 180px; }
+    .brand-logo { width: 36px; height: 36px; border-radius: 10px; background: radial-gradient(circle at 20% 20%, #38bdf8, #1d4ed8); display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;color:#e5f6ff;box-shadow:0 10px 30px rgba(56,189,248,0.45); }
+    .brand-title { font-size: 18px; font-weight:600; }
+    .brand-subtitle { font-size: 12px; color: var(--text-muted); margin-top:2px; }
+
+    .meta { text-align: right; font-size: 12px; color: var(--text-muted); display:flex;flex-direction:column;gap:6px;align-items:flex-end; }
+    .meta-top { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .meta-badge { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; border:1px solid rgba(148,163,184,0.5); background:rgba(15,23,42,0.8); }
+    .meta-dot { width:8px;height:8px;border-radius:50%;background:#22c55e; box-shadow:0 0 0 4px rgba(34,197,94,0.25); }
+
+    .header-controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .tenant-select, .date-input { background:#020617; color:var(--text-main); border-radius:8px; border:1px solid var(--border-subtle); padding:6px 10px; font-size:12px; }
+    .date-input::-webkit-calendar-picker-indicator { filter: invert(1); opacity:1; }
+
+    .auto-refresh { display:inline-flex; align-items:center; gap:6px; font-size:11px; }
+    .auto-refresh-btn { border-radius:999px; border:1px solid rgba(148,163,184,0.6); background:rgba(15,23,42,0.9); padding:4px 10px; font-size:11px; color:var(--text-main); cursor:pointer; }
+    .auto-refresh-btn.on { background: radial-gradient(circle at top, rgba(56,189,248,0.28), #020617); border-color:#38bdf8; box-shadow:0 0 0 1px rgba(56,189,248,0.5); }
+    .auto-refresh-select { background:#020617; color:var(--text-main); border-radius:999px; border:1px solid var(--border-subtle); padding:4px 22px 4px 8px; font-size:11px; outline:none; appearance:none; background-image: linear-gradient(45deg, transparent 50%, #64748b 50%), linear-gradient(135deg, #64748b 50%, transparent 50%); background-position: calc(100% - 12px) 8px, calc(100% - 7px) 8px; background-size:4px 4px,4px 4px; background-repeat:no-repeat; }
+
+    .layout-grid { display:grid; grid-template-columns: 2fr 1.3fr; gap:14px; align-items:start; }
+    @media (max-width: 1100px) { .layout-grid { grid-template-columns: 1fr; } header { align-items:flex-start; } .meta { align-items:flex-start; } }
+
+    section { background: radial-gradient(circle at top left, #0b1120 0, #020617 60%); border-radius: var(--radius-lg); border:1px solid var(--border-subtle); box-shadow: var(--shadow-soft); padding:14px 14px; }
+    section + section { margin-top:12px; }
+
+    .section-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:10px; }
+    .section-title { font-size:13px; font-weight:600; text-transform:uppercase; color:#9ca3af; }
+    .section-subtitle { font-size:12px; color:var(--text-muted); }
+
+    .pill { display:inline-flex; align-items:center; gap:6px; padding:4px 9px; border-radius:999px; font-size:11px; border:1px solid rgba(148,163,184,0.5); background:rgba(15,23,42,0.7); color:var(--text-muted); }
+    .pill-dot { width:6px;height:6px;border-radius:50%; background:var(--accent); }
+
+    /* KPI */
+    .kpi-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:10px; }
+    .kpi-card { padding:10px; border-radius:12px; border:1px solid rgba(30,64,175,0.12); background: linear-gradient(180deg, rgba(56,189,248,0.04), rgba(2,6,23,0.6)); position:relative; }
+    .kpi-label { font-size:11px; color:var(--text-muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.06em; }
+    .kpi-main { display:flex; justify-content:space-between; align-items:baseline; gap:6px; }
+    .kpi-value { font-size:18px; font-weight:700; }
+    .kpi-chip { font-size:11px; padding:4px 8px; border-radius:999px; background:rgba(15,23,42,0.75); border:1px solid rgba(148,163,184,0.12); color:var(--text-muted); }
+
+    .controls-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
+    label { font-size:12px; color:var(--text-muted); min-width:60px; }
+
+    .chart-wrapper { background: radial-gradient(circle at top, #020617 0, #020617 60%); border-radius:10px; border:1px solid rgba(31,41,55,0.6); padding:8px; min-height:200px; display:flex; align-items:center; justify-content:center; }
+    canvas { width:100% !important; height:280px !important; display:block; }
+
+    /* smaller screens - reduce canvas height */
+    @media (max-width: 700px) { .chart-wrapper { min-height:160px; } canvas { height:200px !important; } .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); } }
+
+    .funnel-wrapper { display:grid; grid-template-columns: 2fr 1fr; gap:10px; }
+    @media (max-width: 900px) { .funnel-wrapper { grid-template-columns: 1fr; } }
+
+    table { width:100%; border-collapse:collapse; font-size:13px; color:var(--text-main); }
+    th, td { padding:8px 6px; border-bottom:1px solid rgba(31,41,55,0.6); text-align:left; }
+    th { color:var(--text-muted); text-transform:uppercase; font-size:11px; }
+
+    .funnel-overall-card { padding:10px; border-radius:10px; background: linear-gradient(180deg, rgba(56,189,248,0.04), rgba(2,6,23,0.45)); border:1px solid rgba(37,99,235,0.08); display:flex; flex-direction:column; gap:8px; }
+    .funnel-overall-rate { font-size:22px; font-weight:700; color:var(--accent); }
+
+    .systems-wrapper { display:grid; grid-template-columns:1.5fr 1fr; gap:10px; }
+    @media (max-width: 900px) { .systems-wrapper { grid-template-columns: 1fr; } }
+
+    .tiny { font-size:11px; color:var(--text-muted); }
+
+    /* NO DATA card */
+    .no-data {
+      width:100%;
+      padding:18px;
+      border-radius:10px;
+      border:1px dashed rgba(148,163,184,0.08);
+      background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(2,6,23,0.04));
+      color:var(--text-muted);
+      text-align:center;
+    }
+
+    .state-message { font-size:13px; color:var(--text-muted); padding:12px; text-align:center; }
+    .state-message span { color:var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="page-wrapper">
+    <header>
+      <div class="brand">
+        <div class="brand-logo">F</div>
+        <div>
+          <div class="brand-title">Funnel Analytics</div>
+          <div class="brand-subtitle" id="brand-subtitle">Tenant – · Source: events</div>
+        </div>
+      </div>
+
+      <div class="meta">
+        <div class="meta-top">
+          <span class="meta-badge"><span class="meta-dot"></span> Live Dashboard</span>
+
+          <!-- tenant select + date input -->
+          <div class="header-controls">
+            <select id="tenant-select" class="tenant-select" title="Select tenant">
+              <option value="7175">Theobroma 7175</option>
+              <option value="10">Test 10</option>
+              <option value="20">Test 20</option>
+            </select>
+
+            <input id="date-input" class="date-input" type="date" placeholder="YYYY-MM-DD" title="Select date (YYYY-MM-DD)">
+
+            <div class="auto-refresh">
+              <button id="auto-refresh-toggle" class="auto-refresh-btn">Auto Refresh: Off</button>
+              <select id="auto-refresh-interval" class="auto-refresh-select">
+                <option value="2000">Every 2s</option>
+                <option value="5000">Every 5s</option>
+                <option value="10000" selected>Every 10s</option>
+                <option value="60000">Every 1min</option>
+                <option value="120000">Every 2min</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <span id="meta-date">Date: –</span>
+        <span id="meta-url" style="font-size:11px;opacity:0.75;">API: /api/dashboard/–</span>
+      </div>
+    </header>
+
+    <div id="global-state" class="state-message">Loading funnel data from <span>uengage-funnel-event.uengage.in</span>…</div>
+
+    <div class="layout-grid" id="dashboard-layout" style="display:none;">
+      <div>
+        <!-- SECTION 1: SUMMARY -->
+        <section id="summary-section">
+          <div class="section-header">
+            <div>
+              <div class="section-title">Event Overview</div>
+              <div class="section-subtitle">Counts & unique visitors per funnel step</div>
+            </div>
+            <div class="pill"><span class="pill-dot"></span> visit → conversion</div>
+          </div>
+          <div id="summary-cards" class="kpi-grid"></div>
+          <div id="summary-no-data" class="no-data" style="display:none;">NO DATA AVAILABLE</div>
+        </section>
+
+        <!-- SECTION 2: HOURLY CHART -->
+        <section id="hourly-section">
+          <div class="section-header">
+            <div>
+              <div class="section-title">Hourly Trend</div>
+              <div class="section-subtitle">Volume & visitors by hour of day</div>
+            </div>
+          </div>
+          <div class="controls-row">
+            <label for="hourly-event-select">Event</label>
+            <select id="hourly-event-select"></select>
+            <span class="tiny">X-axis: hour (0–23) · Y-axis: count & UV</span>
+          </div>
+          <div id="hourly-wrapper">
+            <div class="chart-wrapper" id="hourly-chart-wrapper">
+              <canvas id="hourly-chart"></canvas>
+            </div>
+            <div id="hourly-no-data" class="no-data" style="display:none;">NO DATA AVAILABLE FOR SELECTED EVENT</div>
+          </div>
+        </section>
+
+        <!-- SECTION 3: FUNNEL CONVERSION -->
+        <section id="funnel-section">
+          <div class="section-header">
+            <div>
+              <div class="section-title">Funnel Conversion</div>
+              <div class="section-subtitle">Custom journey: Visit → Login → OTP → Login → Cart → Payment → Conversion</div>
+            </div>
+            <div class="funnel-tag"><span class="funnel-tag-dot"></span> UV-based conversion</div>
+          </div>
+
+          <div id="funnel-wrapper-inner">
+            <div style="overflow:auto;">
+              <table class="funnel-table" id="funnel-table">
+                <thead><tr><th>From → To</th><th>UV → UV</th><th>Step Conv%</th><th>Notes</th></tr></thead>
+                <tbody id="funnel-table-body"></tbody>
+              </table>
+              <div id="funnel-no-data" class="no-data" style="display:none;">NO FUNNEL DATA AVAILABLE</div>
+            </div>
+
+            <div>
+              <div class="funnel-overall-card">
+                <div class="funnel-overall-title">Overall Conversion</div>
+                <div class="funnel-overall-main">
+                  <div id="funnel-overall-rate" class="funnel-overall-rate">–%</div>
+                  <div style="text-align:right;font-size:11px;">
+                    <div id="funnel-overall-nums">0 / 0 UV</div>
+                    <div style="color:var(--text-muted);">visit → conversion</div>
+                  </div>
+                </div>
+                <div class="funnel-sparkline"><div id="funnel-sparkline-fill" class="funnel-sparkline-fill"></div></div>
+                <div id="funnel-overall-meta" class="funnel-overall-meta">Waiting for data…</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- RIGHT COLUMN: SYSTEMS / PLATFORM -->
+      <div>
+        <section id="systems-section">
+          <div class="section-header">
+            <div>
+              <div class="section-title">Platform & System View</div>
+              <div class="section-subtitle">OS contribution per event</div>
+            </div>
+          </div>
+          <div class="flex-row">
+            <div class="controls-row" style="margin-bottom:0;">
+              <label for="systems-event-select">Event</label>
+              <select id="systems-event-select"></select>
+            </div>
+            <div class="radio-group">
+              <label><input type="radio" name="systems-view" value="count" checked /> Events</label>
+              <label><input type="radio" name="systems-view" value="unique_visitors" /> Unique Visitors</label>
+            </div>
+          </div>
+
+          <div id="systems-wrapper-inner" class="systems-wrapper">
+            <div class="chart-wrapper" id="systems-chart-wrapper"><canvas id="systems-chart"></canvas></div>
+            <div>
+              <table class="systems-table" id="systems-table">
+                <thead><tr><th>System</th><th>Events</th><th>UV</th></tr></thead>
+                <tbody id="systems-table-body"></tbody>
+              </table>
+              <div id="systems-no-data" class="no-data" style="display:none;">NO SYSTEMS DATA AVAILABLE</div>
+              <div id="systems-meta" class="status-text tiny"></div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const DEFAULT_TENANT_ID = "7175";
+    const API_BASE = "https://uengage-funnel-event.uengage.in/api/dashboard/";
+
+    // read tenant & date from URL query if present
+    function readUrlParams() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        return {
+          tenant: params.get("tenant_id") || params.get("tenant") || DEFAULT_TENANT_ID,
+          date: params.get("date") || ""
+        };
+      } catch { return { tenant: DEFAULT_TENANT_ID, date: "" }; }
+    }
+
+    function updateUrlQuery(tenant, date) {
+      try {
+        const url = new URL(window.location.href);
+        const params = url.searchParams;
+        params.set("tenant_id", tenant);
+        if (date) params.set("date", date);
+        else params.delete("date");
+        url.search = params.toString();
+        window.history.replaceState({}, "", url.toString());
+      } catch (e) { /* ignore */ }
+    }
+
+    const params = readUrlParams();
+    let TENANT_ID = params.tenant;
+    let SELECTED_DATE = params.date; // format YYYY-MM-DD or empty
+
+    function buildApiUrl() {
+      const base = API_BASE + TENANT_ID;
+      return SELECTED_DATE ? `${base}?date=${encodeURIComponent(SELECTED_DATE)}` : base;
+    }
+
+    let API_URL = buildApiUrl();
+
+    const FUNNEL_ORDER = ["visit","location_popup","location_selected","send_otp","login_success","add_to_cart", "begin_checkout", "add_payment_info", "conversion"];
+
+    const FUNNEL_PAIRS = [
+      ["visit","login_success"],
+      ["visit","add_to_cart"],
+      ["send_otp","login_success"],
+      ["login_success","add_to_cart"],
+      ["add_to_cart","begin_checkout"],
+      ["begin_checkout", "add_payment_info"],
+      ["add_payment_info","conversion"]
+    ];
+
+    const LABELS = {
+      visit: "Visit",
+      location_popup: "Location Popup",
+      location_selected: "Location Selected",
+      send_otp: "Send OTP",
+      login_success: "Login Success",
+      add_to_cart: "Add to Cart",
+      add_payment_info: "Add Payment Info",
+      begin_checkout: "Begin Checkout",
+      conversion: "Conversion"
+    };
+
+    // DOM refs
+    const globalStateEl = document.getElementById("global-state");
+    const layoutEl = document.getElementById("dashboard-layout");
+    const metaDateEl = document.getElementById("meta-date");
+    const metaUrlEl = document.getElementById("meta-url");
+    const brandSubtitleEl = document.getElementById("brand-subtitle");
+    const tenantSelectEl = document.getElementById("tenant-select");
+    const dateInputEl = document.getElementById("date-input");
+    const autoRefreshToggleBtn = document.getElementById("auto-refresh-toggle");
+    const autoRefreshIntervalSelect = document.getElementById("auto-refresh-interval");
+
+    const summaryCardsContainer = document.getElementById("summary-cards");
+    const summaryNoDataEl = document.getElementById("summary-no-data");
+    const hourlyEventSelect = document.getElementById("hourly-event-select");
+    const hourlyNoDataEl = document.getElementById("hourly-no-data");
+    const hourlyChartWrapper = document.getElementById("hourly-chart-wrapper");
+    const systemsEventSelect = document.getElementById("systems-event-select");
+    const systemsNoDataEl = document.getElementById("systems-no-data");
+    const systemsChartWrapper = document.getElementById("systems-chart-wrapper");
+    const funnelTableBody = document.getElementById("funnel-table-body");
+    const funnelTableEl = document.getElementById("funnel-table");
+    const funnelNoDataEl = document.getElementById("funnel-no-data");
+    const funnelOverallRateEl = document.getElementById("funnel-overall-rate");
+    const funnelOverallNumsEl = document.getElementById("funnel-overall-nums");
+    const funnelOverallMetaEl = document.getElementById("funnel-overall-meta");
+    const funnelSparkFillEl = document.getElementById("funnel-sparkline-fill");
+    const systemsTableBody = document.getElementById("systems-table-body");
+    const systemsTableEl = document.getElementById("systems-table");
+    const systemsMetaEl = document.getElementById("systems-meta");
+
+    let hourlyChartInstance = null;
+    let systemsChartInstance = null;
+    let dashboardData = null;
+    let initialized = false;
+    let layoutShown = false;
+    let autoRefreshTimer = null;
+
+    function anyFunnelHasData(funnels) {
+      if (!funnels) return false;
+      return FUNNEL_ORDER.some(k => {
+        const f = funnels[k];
+        if (!f) return false;
+        const c = Number(f.count || 0);
+        const uv = Number(f.unique_visitors || 0);
+        // treat tiny nonzero values as data
+        return c > 0 || uv > 0;
+      });
+    }
+
+    async function fetchDashboardData() {
+      const res = await fetch(API_URL);
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    }
+
+    function formatPercent(num) { if (!Number.isFinite(num)) return "–"; return num.toFixed(1) + "%"; }
+
+    function safeGet(obj, path, defaultVal = 0) {
+      try {
+        const parts = path.split(".");
+        let curr = obj;
+        for (const p of parts) {
+          curr = curr[p];
+          if (curr == null) return defaultVal;
+        }
+        return curr;
+      } catch { return defaultVal; }
+    }
+
+    // show/hide helper
+    function show(el) { if (!el) return; el.style.display = ""; }
+    function hide(el) { if (!el) return; el.style.display = "none"; }
+
+    function buildSummaryCards(funnels) {
+      summaryCardsContainer.innerHTML = "";
+      if (!anyFunnelHasData(funnels)) {
+        hide(summaryCardsContainer);
+        show(summaryNoDataEl);
+        return;
+      }
+      show(summaryCardsContainer);
+      hide(summaryNoDataEl);
+
+      FUNNEL_ORDER.forEach((key, index) => {
+        const f = funnels[key];
+        if (!f) return;
+        if (key === "location_popup") return; // excluded
+        const card = document.createElement("div");
+        card.className = "kpi-card";
+        card.innerHTML = `
+          <div class="kpi-label">${LABELS[key] || key}</div>
+          <div class="kpi-main">
+            <div class="kpi-value">${f.count ?? 0}</div>
+            <div class="kpi-chip">UV: ${f.unique_visitors ?? 0}</div>
+          </div>
+          <div class="kpi-footer">
+            <span class="kpi-step-index">Step ${index + 1}</span>
+            <span style="opacity:0.7;">Platform: website</span>
+          </div>
+        `;
+        summaryCardsContainer.appendChild(card);
+      });
+    }
+
+    function populateEventSelects() {
+      const prevHourly = hourlyEventSelect.value;
+      const prevSystems = systemsEventSelect.value;
+
+      [hourlyEventSelect, systemsEventSelect].forEach(select => {
+        select.innerHTML = "";
+        FUNNEL_ORDER.forEach(key => {
+          if (!dashboardData.funnels[key]) return;
+          const opt = document.createElement("option");
+          opt.value = key;
+          opt.textContent = LABELS[key] || key;
+          select.appendChild(opt);
+        });
+      });
+
+      if (prevHourly && dashboardData.funnels[prevHourly]) hourlyEventSelect.value = prevHourly;
+      if (!hourlyEventSelect.value && hourlyEventSelect.options.length) hourlyEventSelect.selectedIndex = 0;
+
+      if (prevSystems && dashboardData.funnels[prevSystems]) systemsEventSelect.value = prevSystems;
+      if (!systemsEventSelect.value && systemsEventSelect.options.length) systemsEventSelect.selectedIndex = 0;
+    }
+
+    function buildHourlyChart(eventKey) {
+      const funnel = dashboardData.funnels[eventKey];
+      const hourly = (funnel && funnel.hourly) ? funnel.hourly : [];
+
+      // determine if there's any hourly data
+      const hasHourlyData = Array.isArray(hourly) && hourly.length > 0 && hourly.some(h => Number(h.count || 0) > 0 || Number(h.unique_visitors || 0) > 0);
+
+      if (!hasHourlyData) {
+        hide(hourlyChartWrapper);
+        show(hourlyNoDataEl);
+        return;
+      }
+      show(hourlyChartWrapper);
+      hide(hourlyNoDataEl);
+
+      const labels = hourly.map(h => h.hour);
+      const counts = hourly.map(h => h.count);
+      const uvs = hourly.map(h => h.unique_visitors);
+
+      const ctx = document.getElementById("hourly-chart").getContext("2d");
+      if (hourlyChartInstance) hourlyChartInstance.destroy();
+
+      hourlyChartInstance = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels,
+          datasets: [
+            { label: "Events", data: counts, tension: 0.3, borderWidth: 2, pointRadius: 2 },
+            { label: "Unique Visitors", data: uvs, tension: 0.3, borderDash: [4,4], borderWidth: 1.5, pointRadius:2 }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          scales: { x: { grid:{display:false}, ticks:{font:{size:11}} }, y:{ beginAtZero:true, ticks:{font:{size:11}} } },
+          plugins: { legend:{ labels:{ font:{size:11}, usePointStyle:true } }, tooltip:{ callbacks:{ title:(items)=>"Hour: "+items[0].label } } }
+        }
+      });
+    }
+
+    function buildFunnelTable(funnels) {
+      funnelTableBody.innerHTML = "";
+
+      // check if any of the pairs have data
+      const pairsHaveData = FUNNEL_PAIRS.some(([a,b])=>{
+        const auv = safeGet(funnels[a],"unique_visitors",0);
+        const buv = safeGet(funnels[b],"unique_visitors",0);
+        return (auv>0 || buv>0);
+      });
+
+      if (!pairsHaveData) {
+        hide(funnelTableEl);
+        show(funnelNoDataEl);
+      } else {
+        show(funnelTableEl);
+        hide(funnelNoDataEl);
+      }
+
+      FUNNEL_PAIRS.forEach(([fromKey, toKey]) => {
+        const fromUV = safeGet(funnels[fromKey], "unique_visitors", 0);
+        const toUV = safeGet(funnels[toKey], "unique_visitors", 0);
+
+        let conv = null;
+        if (fromUV && fromUV > 0) conv = (toUV / fromUV) * 100;
+
+        let convClass = "neutral";
+        if (conv != null) {
+          if (conv < 100) convClass = "negative";
+          if (conv >= 100) convClass = "positive";
+        }
+
+        let note = "";
+        if (conv == null) note = "N/A";
+        else if (conv < 30) note = "High drop-off";
+        else if (conv < 80) note = "Moderate drop";
+        else if (conv <= 120) note = "Healthy / multi-step";
+        else note = "Re-entry / loop";
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><span class="funnel-step-label">${LABELS[fromKey] || fromKey}</span>
+              <span style="opacity:0.6;"> → </span>
+              <span class="funnel-step-label">${LABELS[toKey] || toKey}</span>
+          </td>
+          <td>${fromUV} → ${toUV}</td>
+          <td class="funnel-rate ${convClass}">${conv == null ? "–" : formatPercent(conv)}</td>
+          <td style="color:var(--text-muted);">${note}</td>
+        `;
+        funnelTableBody.appendChild(tr);
+      });
+
+      const visitUV = safeGet(funnels["visit"], "unique_visitors", 0);
+      const convUV = safeGet(funnels["conversion"], "unique_visitors", 0);
+      const overall = visitUV > 0 ? (convUV / visitUV) * 100 : null;
+      funnelOverallRateEl.textContent = overall == null ? "–%" : overall.toFixed(1) + "%";
+      funnelOverallNumsEl.textContent = `${convUV} / ${visitUV} UV`;
+      const ratio = overall != null ? Math.max(0.05, Math.min(1, overall / 100)) : 0.2;
+      funnelSparkFillEl.style.transform = `scaleX(${ratio})`;
+      funnelOverallMetaEl.textContent = visitUV === 0 ? "No visits yet to compute overall conversion." : `Out of all visitors who started at visit, ${convUV} reached conversion.`;
+    }
+
+    function buildSystemsView(eventKey, metricKey = "count") {
+      const funnel = dashboardData.funnels[eventKey];
+      const systems = funnel ? (funnel.systems || {}) : {};
+      // const labels = Object.keys(systems || {});
+      // const values = labels.map(os => systems[os][metricKey] || 0);
+      // const uvValues = labels.map(os => systems[os].unique_visitors || 0);
+
+            // Convert to array for sorting
+      let systemEntries = Object.entries(systems);
+
+      // Sort ascending based on selected metric
+      systemEntries.sort((a, b) => {
+        const aVal = a[1][metricKey] || 0;
+        const bVal = b[1][metricKey] || 0;
+        return aVal - bVal;   // ascending
+      });
+
+      // Rebuild sorted labels + values
+      const labels = systemEntries.map(entry => entry[0]);
+      const values = systemEntries.map(entry => entry[1][metricKey] || 0);
+      const uvValues = systemEntries.map(entry => entry[1].unique_visitors || 0);
+
+
+      const hasSystemData = labels.length > 0 && (values.some(v=>v>0) || uvValues.some(v=>v>0));
+
+      if (!hasSystemData) {
+        hide(systemsChartWrapper);
+        hide(systemsTableEl);
+        show(systemsNoDataEl);
+        systemsMetaEl.textContent = "";
+        return;
+      }
+      show(systemsChartWrapper);
+      show(systemsTableEl);
+      hide(systemsNoDataEl);
+
+      systemsTableBody.innerHTML = "";
+      labels.forEach((os, idx) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${os}</td><td>${values[idx]}</td><td>${uvValues[idx]}</td>`;
+        systemsTableBody.appendChild(tr);
+      });
+
+      const ctx = document.getElementById("systems-chart").getContext("2d");
+      if (systemsChartInstance) systemsChartInstance.destroy();
+
+      systemsChartInstance = new Chart(ctx, {
+        type: "bar",
+        data: { labels, datasets: [{ label: metricKey === "count" ? "Events" : "Unique Visitors", data: metricKey === "count" ? values : uvValues, borderWidth: 1 }] },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          scales: { x:{ grid:{display:false}, ticks:{font:{size:11}} }, y:{ beginAtZero:true, ticks:{font:{size:11}} } },
+          plugins: { legend:{ labels:{ font:{size:11} } } }
+        }
+      });
+
+      const totalEvents = values.reduce((a,b)=>a+b,0);
+      const totalUV = uvValues.reduce((a,b)=>a+b,0);
+      systemsMetaEl.innerHTML = `For <strong>${LABELS[eventKey] || eventKey}</strong>, total ${metricKey === "count" ? "events" : "UV"}: <strong>${metricKey === "count" ? totalEvents : totalUV}</strong>.`;
+    }
+
+    function attachEventListeners() {
+      hourlyEventSelect.addEventListener("change", () => { if (hourlyEventSelect.value) buildHourlyChart(hourlyEventSelect.value); });
+      systemsEventSelect.addEventListener("change", () => { const metric = document.querySelector('input[name="systems-view"]:checked').value; buildSystemsView(systemsEventSelect.value, metric); });
+      document.querySelectorAll('input[name="systems-view"]').forEach(radio => { radio.addEventListener("change", e => { buildSystemsView(systemsEventSelect.value, e.target.value); }); });
+
+      tenantSelectEl.addEventListener("change", () => {
+        TENANT_ID = tenantSelectEl.value;
+        updateUrlQuery(TENANT_ID, SELECTED_DATE);
+        API_URL = buildApiUrl();
+        metaUrlEl.textContent = `API: ${API_URL}`;
+        brandSubtitleEl.textContent = `Tenant ${TENANT_ID} · Source: events`;
+        loadDataAndRender(true);
+      });
+
+      dateInputEl.addEventListener("change", () => {
+        const val = dateInputEl.value || "";
+        SELECTED_DATE = val;
+        updateUrlQuery(TENANT_ID, SELECTED_DATE);
+        API_URL = buildApiUrl();
+        metaUrlEl.textContent = `API: ${API_URL}`;
+        loadDataAndRender(true);
+      });
+    }
+
+    function attachAutoRefreshListeners() {
+      function getIntervalMs() { return parseInt(autoRefreshIntervalSelect.value, 10) || 10000; }
+      function startAutoRefresh() { if (autoRefreshTimer) clearInterval(autoRefreshTimer); autoRefreshTimer = setInterval(()=> loadDataAndRender(false), getIntervalMs()); autoRefreshToggleBtn.textContent = "Auto Refresh: On"; autoRefreshToggleBtn.classList.add("on"); }
+      function stopAutoRefresh() { if (autoRefreshTimer) clearInterval(autoRefreshTimer); autoRefreshTimer = null; autoRefreshToggleBtn.textContent = "Auto Refresh: Off"; autoRefreshToggleBtn.classList.remove("on"); }
+      autoRefreshToggleBtn.addEventListener("click", ()=> { if (autoRefreshTimer) stopAutoRefresh(); else startAutoRefresh(); });
+      autoRefreshIntervalSelect.addEventListener("change", ()=> { if (autoRefreshTimer) startAutoRefresh(); });
+    }
+
+    async function loadDataAndRender(showError = true) {
+      API_URL = buildApiUrl();
+      metaUrlEl.textContent = `API: ${API_URL}`;
+      try {
+        const data = await fetchDashboardData();
+        dashboardData = data;
+        metaDateEl.textContent = "Date: " + (data.date || (SELECTED_DATE || "—"));
+
+        if (!layoutShown) { globalStateEl.style.display = "none"; layoutEl.style.display = "grid"; layoutShown = true; }
+
+        // SECTION 1 (summary)
+        buildSummaryCards(data.funnels || {});
+
+        // populate selects after data present
+        populateEventSelects();
+
+        // hourly chart for selected event
+        if (hourlyEventSelect.value) buildHourlyChart(hourlyEventSelect.value);
+        else { hide(hourlyChartWrapper); show(hourlyNoDataEl); }
+
+        // funnel section
+        buildFunnelTable(data.funnels || {});
+
+        // systems section
+        const metric = document.querySelector('input[name="systems-view"]:checked')?.value || "count";
+        if (systemsEventSelect.value) buildSystemsView(systemsEventSelect.value, metric);
+        else { hide(systemsChartWrapper); show(systemsNoDataEl); }
+
+        if (!initialized) { attachEventListeners(); initialized = true; }
+      } catch (err) {
+        console.error("Failed to load dashboard data:", err);
+        if (showError) {
+          globalStateEl.style.display = "block";
+          globalStateEl.innerHTML = 'Unable to load data from <span>' + API_URL + "</span>. Check CORS / network and try again.";
+        }
+        // show NO DATA in all sections
+        hide(summaryCardsContainer); show(summaryNoDataEl);
+        hide(hourlyChartWrapper); show(hourlyNoDataEl);
+        hide(funnelTableEl); show(funnelNoDataEl);
+        hide(systemsChartWrapper); show(systemsNoDataEl);
+      }
+    }
+
+    // initialization
+    function init() {
+      tenantSelectEl.value = TENANT_ID || DEFAULT_TENANT_ID;
+      dateInputEl.value = SELECTED_DATE || "";
+
+      brandSubtitleEl.textContent = `Tenant ${TENANT_ID} · Source: events`;
+      API_URL = buildApiUrl();
+      metaUrlEl.textContent = `API: ${API_URL}`;
+
+      attachAutoRefreshListeners();
+      attachEventListeners();
+
+      // initial state: show NO DATA placeholders until loaded
+      hide(summaryCardsContainer); hide(hourlyChartWrapper); hide(funnelTableEl); hide(systemsChartWrapper);
+      show(summaryNoDataEl); show(hourlyNoDataEl); show(funnelNoDataEl); show(systemsNoDataEl);
+
+      loadDataAndRender(true);
+    }
+
+    window.addEventListener("DOMContentLoaded", init);
+  </script>
+</body>
+</html>
