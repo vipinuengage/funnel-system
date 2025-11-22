@@ -102,12 +102,20 @@ async function aggregateForDate(dateStr) {
         },
 
         {
+            // NOTE: both captured_date and normalized transaction id must be inside $addFields
             $addFields: {
                 captured_date: {
                     $dateFromString: {
                         dateString: "$captured_at",
                         timezone: "Asia/Kolkata"
                     }
+                },
+                _transaction_id_str: {
+                    $cond: [
+                        { $ifNull: ["$metadata.transaction_id", false] },
+                        { $toString: "$metadata.transaction_id" },
+                        null
+                    ]
                 }
             }
         },
@@ -124,7 +132,8 @@ async function aggregateForDate(dateStr) {
                 },
                 visitor_id: 1,
                 platform: 1,
-                system: 1
+                system: 1,
+                _transaction_id_str: 1
             }
         },
 
@@ -138,6 +147,7 @@ async function aggregateForDate(dateStr) {
                     system: "$system"
                 },
                 visitors: { $addToSet: "$visitor_id" },
+                transactions: { $addToSet: "$_transaction_id_str" }, // <-- correct field name
                 count: { $sum: 1 }
             }
         },
@@ -150,12 +160,11 @@ async function aggregateForDate(dateStr) {
                 platform: "$_id.platform",
                 system: "$_id.system",
                 count: 1,
-                visitors: 1
+                visitors: 1,
+                transactions: 1
             }
         }
     ];
-
-
 
     const cursor = Event.aggregate(pipeline)
         .allowDiskUse(true)
@@ -173,70 +182,98 @@ async function aggregateForDate(dateStr) {
             tenantMap.set(eventName, {
                 count: 0,
                 visitors: new Set(),
-                hourly: {}, // hour => { count, visitors:Set }
-                platforms: {}, // platform => { count, visitors:Set }
-                systems: {}, // system => { count, visitors:Set }
+                transactions: new Set(),
+                hourly: {}, // hour => { count, visitors:Set, transactions:Set }
+                platforms: {}, // platform => { count, visitors:Set, transactions:Set }
+                systems: {}, // system => { count, visitors:Set, transactions:Set }
             });
         }
 
         const stat = tenantMap.get(eventName);
 
-        // total count
-        stat.count += row.count;
+        // total count (raw events)
+        stat.count += row.count || 0;
 
         // visitors (dedupe across buckets)
         for (const v of row.visitors || []) {
-            stat.visitors.add(v);
+            if (v != null) stat.visitors.add(String(v));
+        }
+
+        // transactions (dedupe across buckets) - filter nulls
+        for (const t of row.transactions || []) {
+            if (t != null) stat.transactions.add(String(t));
         }
 
         // hourly
         const hr = Number(row.hour ?? 0);
-        if (!stat.hourly[hr]) stat.hourly[hr] = { count: 0, visitors: new Set() };
-        stat.hourly[hr].count += row.count;
-        for (const v of row.visitors || []) stat.hourly[hr].visitors.add(v);
+        if (!stat.hourly[hr]) stat.hourly[hr] = { count: 0, visitors: new Set(), transactions: new Set() };
+        stat.hourly[hr].count += row.count || 0;
+        for (const v of row.visitors || []) if (v != null) stat.hourly[hr].visitors.add(String(v));
+        for (const t of row.transactions || []) if (t != null) stat.hourly[hr].transactions.add(String(t));
 
         // platform
         const platform = row.platform || "unknown";
-        if (!stat.platforms[platform]) stat.platforms[platform] = { count: 0, visitors: new Set() };
-        stat.platforms[platform].count += row.count;
-        for (const v of row.visitors || []) stat.platforms[platform].visitors.add(v);
+        if (!stat.platforms[platform]) stat.platforms[platform] = { count: 0, visitors: new Set(), transactions: new Set() };
+        stat.platforms[platform].count += row.count || 0;
+        for (const v of row.visitors || []) if (v != null) stat.platforms[platform].visitors.add(String(v));
+        for (const t of row.transactions || []) if (t != null) stat.platforms[platform].transactions.add(String(t));
 
         // system
         const system = row.system || "unknown";
-        if (!stat.systems[system]) stat.systems[system] = { count: 0, visitors: new Set() };
-        stat.systems[system].count += row.count;
-        for (const v of row.visitors || []) stat.systems[system].visitors.add(v);
+        if (!stat.systems[system]) stat.systems[system] = { count: 0, visitors: new Set(), transactions: new Set() };
+        stat.systems[system].count += row.count || 0;
+        for (const v of row.visitors || []) if (v != null) stat.systems[system].visitors.add(String(v));
+        for (const t of row.transactions || []) if (t != null) stat.systems[system].transactions.add(String(t));
     }
 
     // Upsert per tenant/event into DailyFunnelStat
     const upserted = [];
     for (const [tenantId, tenantMap] of totals.entries()) {
         for (const [eventName, s] of tenantMap.entries()) {
-            const hourlyObj = {};
+            // build hourly map and final hourly array
             const hourlyMapForDoc = {}; // hour -> { count, unique_visitors }
             for (const [hour, data] of Object.entries(s.hourly)) {
-                hourlyMapForDoc[Number(hour)] = { count: data.count, unique_visitors: data.visitors.size };
+                // for conversion prefer unique transactions (if present) else visitors
+                const isConversion = eventName === "conversion";
+                const unique_uv = isConversion
+                    ? (data.transactions.size > 0 ? data.transactions.size : data.visitors.size)
+                    : data.visitors.size;
+
+                hourlyMapForDoc[Number(hour)] = { count: data.count, unique_visitors: unique_uv };
             }
 
-            // build platforms map for document
+            const hourlyArray = buildHourlyArray(hourlyMapForDoc); // final 0..23 array
+
+            // platforms
             const platformsDoc = {};
             for (const [pname, pval] of Object.entries(s.platforms)) {
-                platformsDoc[pname] = { count: pval.count, unique_visitors: pval.visitors.size };
+                const isConversion = eventName === "conversion";
+                const uv = isConversion
+                    ? (pval.transactions.size > 0 ? pval.transactions.size : pval.visitors.size)
+                    : pval.visitors.size;
+                platformsDoc[pname] = { count: pval.count, unique_visitors: uv };
             }
 
+            // systems
             const systemsDoc = {};
             for (const [sname, sval] of Object.entries(s.systems)) {
-                systemsDoc[sname] = { count: sval.count, unique_visitors: sval.visitors.size };
+                const isConversion = eventName === "conversion";
+                const uv = isConversion
+                    ? (sval.transactions.size > 0 ? sval.transactions.size : sval.visitors.size)
+                    : sval.visitors.size;
+                systemsDoc[sname] = { count: sval.count, unique_visitors: uv };
             }
 
-            // final hourly array filled 0..23
-            const hourlyArray = buildHourlyArray(hourlyMapForDoc);
+            // top-level unique_visitors: prefer transactions for conversion
+            const topUniqueVisitors = (eventName === "conversion")
+                ? (s.transactions.size > 0 ? s.transactions.size : s.visitors.size)
+                : s.visitors.size;
 
             const filter = { tenant_id: tenantId, date: dateStr, funnel: eventName };
             const update = {
                 $set: {
                     count: s.count,
-                    unique_visitors: s.visitors.size,
+                    unique_visitors: topUniqueVisitors,
                     hourly: hourlyArray,
                     platforms: platformsDoc,
                     systems: systemsDoc,

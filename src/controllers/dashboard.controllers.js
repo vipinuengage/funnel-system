@@ -284,6 +284,14 @@ const dashboardController = async (req, res) => {
                             dateString: "$captured_at",
                             timezone: "Asia/Kolkata"
                         }
+                    },
+                    // normalize transaction id into a string (if present)
+                    _transaction_id_str: {
+                        $cond: [
+                            { $ifNull: ["$metadata.transaction_id", false] },
+                            { $toString: "$metadata.transaction_id" },
+                            null
+                        ]
                     }
                 }
             },
@@ -300,7 +308,8 @@ const dashboardController = async (req, res) => {
                     },
                     visitor_id: 1,
                     platform: 1,
-                    system: 1
+                    system: 1,
+                    _transaction_id_str: 1
                 }
             },
 
@@ -314,6 +323,7 @@ const dashboardController = async (req, res) => {
                         system: "$system"
                     },
                     visitors: { $addToSet: "$visitor_id" },
+                    transactions: { $addToSet: "$_transaction_id_str" }, // new - will contain nulls if missing
                     count: { $sum: 1 }
                 }
             },
@@ -326,7 +336,8 @@ const dashboardController = async (req, res) => {
                     platform: "$_id.platform",
                     system: "$_id.system",
                     count: 1,
-                    visitors: 1
+                    visitors: 1,
+                    transactions: 1
                 }
             }
         ];
@@ -337,41 +348,94 @@ const dashboardController = async (req, res) => {
         for (const r of agg) {
             const ev = r._id.event;
             if (!dailyTotals[ev]) {
-                dailyTotals[ev] = { visitors: new Set(), count: 0, hourly: {}, platforms: {}, systems: {} };
+                dailyTotals[ev] = { visitors: new Set(), transactions: new Set(), count: 0, hourly: {}, platforms: {}, systems: {} };
             }
+
             dailyTotals[ev].count += r.count;
-            (r.visitors || []).forEach((v) => dailyTotals[ev].visitors.add(v));
+
+            // populate transaction set (filter out nulls)
+            (r.transactions || []).forEach((tx) => {
+                if (tx) dailyTotals[ev].transactions.add(String(tx));
+            });
+
+            // populate visitor set
+            (r.visitors || []).forEach((v) => {
+                if (v) dailyTotals[ev].visitors.add(String(v));
+            });
+
+            // helper to build identifier for UV depending on event type
+            const useTransactionKey = (eventName) => (eventName === "conversion");
 
             // hourly
             const hr = r._id.hour != null ? r._id.hour : 0;
-            if (!dailyTotals[ev].hourly[hr]) dailyTotals[ev].hourly[hr] = { visitors: new Set(), count: 0 };
-            (r.visitors || []).forEach((v) => dailyTotals[ev].hourly[hr].visitors.add(v));
+            if (!dailyTotals[ev].hourly[hr]) dailyTotals[ev].hourly[hr] = { visitors: new Set(), transactions: new Set(), count: 0 };
+
+            // add transaction ids for this group
+            (r.transactions || []).forEach((tx) => { if (tx) dailyTotals[ev].hourly[hr].transactions.add(String(tx)); });
+
+            // add visitor ids for this group
+            (r.visitors || []).forEach((v) => { if (v) dailyTotals[ev].hourly[hr].visitors.add(String(v)); });
+
             dailyTotals[ev].hourly[hr].count += r.count;
 
             // platform
             const plat = r._id.platform || "unknown";
-            if (!dailyTotals[ev].platforms[plat]) dailyTotals[ev].platforms[plat] = { visitors: new Set(), count: 0 };
-            (r.visitors || []).forEach((v) => dailyTotals[ev].platforms[plat].visitors.add(v));
+            if (!dailyTotals[ev].platforms[plat]) dailyTotals[ev].platforms[plat] = { visitors: new Set(), transactions: new Set(), count: 0 };
+            (r.transactions || []).forEach((tx) => { if (tx) dailyTotals[ev].platforms[plat].transactions.add(String(tx)); });
+            (r.visitors || []).forEach((v) => { if (v) dailyTotals[ev].platforms[plat].visitors.add(String(v)); });
             dailyTotals[ev].platforms[plat].count += r.count;
 
             // system
             const sys = r._id.system || "unknown";
-            if (!dailyTotals[ev].systems[sys]) dailyTotals[ev].systems[sys] = { visitors: new Set(), count: 0 };
-            (r.visitors || []).forEach((v) => dailyTotals[ev].systems[sys].visitors.add(v));
+            if (!dailyTotals[ev].systems[sys]) dailyTotals[ev].systems[sys] = { visitors: new Set(), transactions: new Set(), count: 0 };
+            (r.transactions || []).forEach((tx) => { if (tx) dailyTotals[ev].systems[sys].transactions.add(String(tx)); });
+            (r.visitors || []).forEach((v) => { if (v) dailyTotals[ev].systems[sys].visitors.add(String(v)); });
             dailyTotals[ev].systems[sys].count += r.count;
         }
 
         // serialize
         const funnels = {};
         for (const [ev, stats] of Object.entries(dailyTotals)) {
+            const isConversion = ev === "conversion";
+
+            // top-level unique visitors:
+            // - for conversion: use unique transaction ids if present, else fall back to visitor ids
+            let uniqueVisitorsTop;
+            if (isConversion) {
+                // prefer transaction ids
+                if (stats.transactions.size > 0) uniqueVisitorsTop = stats.transactions.size;
+                else uniqueVisitorsTop = stats.visitors.size;
+            } else {
+                uniqueVisitorsTop = stats.visitors.size;
+            }
+
+            // hourly array: for conversion use hourly.transactions if present else hourly.visitors
+            const hourly = Object.entries(stats.hourly).map(([hour, d]) => {
+                const unique_uv = isConversion ? (d.transactions.size > 0 ? d.transactions.size : d.visitors.size) : d.visitors.size;
+                return { hour: Number(hour), count: d.count, unique_visitors: unique_uv };
+            });
+
+            // platforms: prefer transactions on conversion
+            const platforms = Object.fromEntries(Object.entries(stats.platforms).map(([p, d]) => {
+                const uv = isConversion ? (d.transactions.size > 0 ? d.transactions.size : d.visitors.size) : d.visitors.size;
+                return [p, { count: d.count, unique_visitors: uv }];
+            }));
+
+            // systems: same logic
+            const systems = Object.fromEntries(Object.entries(stats.systems).map(([s, d]) => {
+                const uv = isConversion ? (d.transactions.size > 0 ? d.transactions.size : d.visitors.size) : d.visitors.size;
+                return [s, { count: d.count, unique_visitors: uv }];
+            }));
+
             funnels[ev] = {
                 count: stats.count,
-                unique_visitors: stats.visitors.size,
-                hourly: Object.entries(stats.hourly).map(([hour, d]) => ({ hour: Number(hour), count: d.count, unique_visitors: d.visitors.size })),
-                platforms: Object.fromEntries(Object.entries(stats.platforms).map(([p, d]) => [p, { count: d.count, unique_visitors: d.visitors.size }])),
-                systems: Object.fromEntries(Object.entries(stats.systems).map(([s, d]) => [s, { count: d.count, unique_visitors: d.visitors.size }])),
+                unique_visitors: uniqueVisitorsTop,
+                hourly,
+                platforms,
+                systems
             };
         }
+
 
         return res.status(200).json({ date: dateQuery, tenant_id: tenantId, source: "events", funnels });
     } catch (err) {

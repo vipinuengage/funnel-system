@@ -16,7 +16,13 @@ const eventsIngestController = async (req, res) => {
 
         // Normalize
         const processed = events.map((ev) => {
-            let captured_at = momentTZ((ev?.captured_at || "").trim()).tz("Asia/Kolkata").format('YYYY-MM-DD HH:mm:ss');
+            let captured_at;
+            if (ev?.metadata?.captured_at) {
+                captured_at = momentTZ((ev?.metadata?.captured_at || "").trim()).tz("Asia/Kolkata").format('YYYY-MM-DD HH:mm:ss');
+            } else {
+                captured_at = momentTZ((ev?.captured_at || "").trim()).tz("Asia/Kolkata").format('YYYY-MM-DD HH:mm:ss');
+            }
+
             return {
                 ...ev,
                 tenant_id: tenantId,
