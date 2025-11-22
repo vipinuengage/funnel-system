@@ -258,6 +258,7 @@ const dashboardController = async (req, res) => {
         const pipeline = [
             {
                 $match: {
+                    tenant_id: tenantId,
                     $expr: {
                         $and: [
                             {
