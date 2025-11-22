@@ -111,7 +111,7 @@ const eventsIngestController = async (req, res) => {
             } // end useRedis
 
             // Always ensure login backfill in Mongo (non-blocking), whether Redis exists or not.
-            if (ev.event === "login" && ev.user_id && ev.visitor_id) {
+            if (ev.user_id && ev.visitor_id) {
                 const backfillPromise = Event.updateMany(
                     { tenant_id: tenantId, visitor_id: ev.visitor_id, user_id: null },
                     { $set: { user_id: ev.user_id } }
