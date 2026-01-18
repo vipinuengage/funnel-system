@@ -6,7 +6,7 @@ dotenv.config();
 const config = {
     env: process.env.NODE_ENV,
     port: process.env.PORT,
-    corsOptions: { origin: ["https://order.theobroma.in", "http://localhost:3000"], credentials: true },
+    corsOptions: { origin: ["https://order.theobroma.in", "http://localhost:3000", "https://templestreet.in"], credentials: true },
     fntSecret: process.env.FNT_SECRET,
     mongodbUri: process.env.MONGODB_URI,
     redis: {
