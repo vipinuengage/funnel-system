@@ -138,6 +138,7 @@
               <option value="7175">Theobroma 7175</option>
               <option value="12475">Blossomfood</option>
               <option value="6721">Bobabhai</option>
+              <option value="48101">Temple Street</option>
             </select>
 
             <input id="date-input" class="date-input" type="date" placeholder="YYYY-MM-DD" title="Select date (YYYY-MM-DD)">
@@ -310,7 +311,7 @@
 
     let API_URL = buildApiUrl();
 
-    const FUNNEL_ORDER = ["visit","location_popup","location_selected","send_otp","login_success","add_to_cart", "begin_checkout", "add_payment_info", "conversion", "payment_method","add_to_cart","content_viewed","begin_checkout","search","purchase","send_otp","truecaller_success","truecaller_failure","login_success","add_shipping_info","add_payment_info","slot_select","payment_failed","AddToCart","InitiateCheckout","Purchase","AddPaymentInfo","ViewContent"];
+    const FUNNEL_ORDER = ["visit","location_popup","location_selected","send_otp","login_success","add_to_cart", "begin_checkout", "add_payment_info", "conversion"];
 
     const FUNNEL_PAIRS = [
       ["visit","login_success"],
@@ -332,25 +333,6 @@
       add_payment_info: "Add Payment Info",
       begin_checkout: "Begin Checkout",
       conversion: "Conversion",
-      payment_method: "payment_method",
-      add_to_cart: "add_to_cart",
-      content_viewed: "content_viewed",
-      begin_checkout: "begin_checkout",
-      search: "search",
-      purchase: "purchase",
-      send_otp: "send_otp",
-      truecaller_success: "truecaller_success",
-      truecaller_failure: "truecaller_failure",
-      login_success: "login_success",
-      add_shipping_info: "add_shipping_info",
-      add_payment_info: "add_payment_info",
-      slot_select: "slot_select",
-      payment_failed: "payment_failed",
-      AddToCart: "AddToCart",
-      InitiateCheckout: "InitiateCheckout",
-      Purchase: "Purchase",
-      AddPaymentInfo: "AddPaymentInfo",
-      ViewContent: "ViewContent",
     };
 
     // DOM refs
